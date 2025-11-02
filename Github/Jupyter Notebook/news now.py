@@ -519,18 +519,7 @@ def update_database_with_extracted_text(folder_path, db_file_path, table_name, s
 
 # ------------------------
 # Function: Send Telegram message
-# ------------------------
-def send_telegram_message(token, chat_id, message):
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message
-    }
-    response = requests.post(url, json=payload)
-    if response.status_code == 200:
-        print("Message sent successfully!")
-    else:
-        print(f"Failed to send message. Status code: {response.status_code}")
+# -----------------------
 
 
 # ------------------------
@@ -1153,6 +1142,7 @@ if __name__ == "__main__":
 print('from here only for laptop code run this is copy the files to google drive for access mobile codes')
 
 # %%
+
 
 
 
