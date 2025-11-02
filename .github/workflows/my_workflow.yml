@@ -5,6 +5,9 @@ on:
     - cron: "30 13 * * 1-5"   # 7:00 PM IST (Mon–Fri)
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-news-script:
     runs-on: ubuntu-latest
@@ -18,24 +21,52 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies from requirements.txt
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            echo "⚠️ No requirements.txt found — skipping."
+            echo "No requirements.txt found — skipping."
           fi
 
-      - name: Debug working directory (optional)
-        run: |
-          pwd
-          ls -R | head -50  # Show first 50 lines of folder list
-
-      - name: Run main Python script
+      - name: Run script with auto-create-missing-folders
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FILE_PATH: "Github/Final Zip/Final Analysis.zip"
           SEND_TELEGRAM: "true"
-        run: python "Github/Jupyter Notebook/news now.py"
+        run: |
+          set -eo pipefail
+          SCRIPT_PATH="Github/Jupyter Notebook/news now.py"
+          MAX_RETRIES=5
+          ATTEMPT=1
+          while [ $ATTEMPT -le $MAX_RETRIES ]; do
+            echo "Attempt $ATTEMPT of $MAX_RETRIES"
+            set +e
+            python "$SCRIPT_PATH" 2>err.txt
+            CODE=$?
+            set -e
+            if [ $CODE -eq 0 ]; then
+              echo "Script finished successfully."
+              break
+            fi
+            if grep -q "No such file or directory: '" err.txt; then
+              MISSING=$(sed -n "s/.*No such file or directory: '\(.*\)'.*/\1/p" err.txt | head -1)
+              if [ -n "$MISSING" ]; then
+                PARENT_DIR=$(dirname "$MISSING")
+                echo "Creating missing folder: $PARENT_DIR"
+                mkdir -p "$PARENT_DIR"
+                ATTEMPT=$((ATTEMPT+1))
+                continue
+              fi
+            fi
+            echo "Script failed (not a missing-folder error)."
+            cat err.txt
+            exit $CODE
+          done
+          if [ $ATTEMPT -gt $MAX_RETRIES ]; then
+            echo "Gave up after $MAX_RETRIES attempts."
+            cat err.txt
+            exit 1
+          fi
